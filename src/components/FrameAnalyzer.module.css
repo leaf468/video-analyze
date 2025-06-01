@@ -1,0 +1,42 @@
+.container {
+    width: 100%;
+    margin-top: 2rem;
+}
+
+.framesGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.frame {
+    width: 240px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.frameImage {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.frameDescription {
+    padding: 0.8rem;
+    background: #f9f9f9;
+    font-size: 0.9rem;
+    min-height: 100px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.frameTime {
+    padding: 0.3rem 0.8rem;
+    background: #eaeaea;
+    font-size: 0.8rem;
+    text-align: right;
+    color: #666;
+}
