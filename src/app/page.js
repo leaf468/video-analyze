@@ -294,8 +294,6 @@ export default function Home() {
     );
 }
 
-// 비디오에서 프레임 캡처 함수 등은 이전과 동일...
-
 // 비디오에서 프레임 캡처
 async function captureFrames(video, numFrames) {
     const frames = [];
@@ -513,50 +511,26 @@ function readImageFile(file) {
     });
 }
 
-// 이미지 분석 API 호출
-async function analyzeImage(dataUrl, apiKey) {
+// 이미지 분석 API 호출 (내부 API 라우트 사용)
+async function analyzeImage(dataUrl) {
     try {
-        // Base64 데이터 추출 (data:image/jpeg;base64, 부분 제거)
-        const base64Image = dataUrl.split(",")[1];
-
-        const response = await fetch(
-            "https://api.openai.com/v1/chat/completions",
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${apiKey}`,
-                },
-                body: JSON.stringify({
-                    model: "gpt-4o", // 이미지를 지원하는 최신 모델 사용
-                    messages: [
-                        {
-                            role: "user",
-                            content: [
-                                {
-                                    type: "text",
-                                    text: "이 이미지에 무엇이 있는지 짧고 간결하게 설명해주세요. 한국어로 답변해주세요.",
-                                },
-                                {
-                                    type: "image_url",
-                                    image_url: {
-                                        url: `data:image/jpeg;base64,${base64Image}`,
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                }),
-            }
-        );
+        const response = await fetch("/api/analyze_image", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                dataUrl: dataUrl,
+            }),
+        });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || "이미지 분석 실패");
+            const errorData = await response.json();
+            throw new Error(errorData.error || "이미지 분석 실패");
         }
 
         const data = await response.json();
-        return data.choices[0].message.content;
+        return data.gameAnalysis;
     } catch (error) {
         console.error("API 호출 오류:", error);
         throw new Error(`API 오류: ${error.message}`);
