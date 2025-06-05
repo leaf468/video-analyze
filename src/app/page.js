@@ -95,8 +95,8 @@ export default function Home() {
                 console.log("비디오 재생 오류 (무시 가능):", e);
             }
 
-            // 캡처할 프레임 수
-            const numFrames = 3;
+            // 캡처할 프레임 수를 10장으로 증가
+            const numFrames = 10;
 
             // 프레임 캡처
             const capturedFrames = await captureFrames(
@@ -112,22 +112,40 @@ export default function Home() {
                 }))
             );
 
-            // 각 프레임 분석
+            // 각 프레임 분석 - 배치 처리로 성능 향상
             const analyzedFrames = [];
+            const batchSize = 3; // 동시에 처리할 프레임 수
 
-            for (const frame of capturedFrames) {
-                try {
-                    const gameAnalysis = await analyzeImage(frame.dataUrl);
-                    analyzedFrames.push({
-                        ...frame,
-                        gameAnalysis,
-                    });
-                } catch (error) {
-                    analyzedFrames.push({
-                        ...frame,
-                        description: `분석 오류: ${error.message}`,
-                    });
-                }
+            for (let i = 0; i < capturedFrames.length; i += batchSize) {
+                const batch = capturedFrames.slice(i, i + batchSize);
+                const batchPromises = batch.map(async (frame) => {
+                    try {
+                        const gameAnalysis = await analyzeImage(frame.dataUrl);
+                        return {
+                            ...frame,
+                            gameAnalysis,
+                        };
+                    } catch (error) {
+                        return {
+                            ...frame,
+                            description: `분석 오류: ${error.message}`,
+                        };
+                    }
+                });
+
+                const batchResults = await Promise.all(batchPromises);
+                analyzedFrames.push(...batchResults);
+
+                // 진행 상황 업데이트
+                setFrames([
+                    ...analyzedFrames,
+                    ...capturedFrames
+                        .slice(analyzedFrames.length)
+                        .map((frame) => ({
+                            ...frame,
+                            description: "분석 대기 중...",
+                        })),
+                ]);
             }
 
             setFrames(analyzedFrames);
@@ -279,9 +297,9 @@ export default function Home() {
                 {isLoading && (
                     <div className={styles.loading}>
                         <div className={styles.loadingSpinner}></div>
-                        <p>프레임 캡처 및 분석 중...</p>
+                        <p>10개 프레임 캡처 및 분석 중...</p>
                         <p className={styles.loadingNote}>
-                            분석에는 약 10-30초가 소요될 수 있습니다.
+                            분석에는 약 30-60초가 소요될 수 있습니다.
                         </p>
                     </div>
                 )}
@@ -294,7 +312,7 @@ export default function Home() {
     );
 }
 
-// 비디오에서 프레임 캡처
+// 비디오에서 프레임 캡처 - 10장으로 증가
 async function captureFrames(video, numFrames) {
     const frames = [];
 
@@ -313,8 +331,8 @@ async function captureFrames(video, numFrames) {
         // 캔버스 생성
         const canvas = document.createElement("canvas");
         // 비디오 크기가 0이면 기본값 설정
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 360;
+        canvas.width = video.videoWidth || 1280;
+        canvas.height = video.videoHeight || 720;
         const ctx = canvas.getContext("2d");
 
         for (let i = 0; i < numFrames; i++) {
@@ -342,18 +360,18 @@ async function captureFrames(video, numFrames) {
         }
     } else {
         // 정상적인 비디오 길이 처리
-        // 시간 간격 계산 (첫 프레임은 10% 지점, 마지막 프레임은 90% 지점)
-        const interval = (duration * 0.8) / (numFrames - 1);
-        const startTime = duration * 0.1;
+        // 시간 간격 계산 (첫 프레임은 5% 지점, 마지막 프레임은 95% 지점)
+        const interval = (duration * 0.9) / (numFrames - 1);
+        const startTime = duration * 0.05;
 
         console.log(
             `비디오 길이: ${duration}초, 간격: ${interval}초, 시작: ${startTime}초`
         );
 
-        // 캔버스 생성
+        // 캔버스 생성 - 더 높은 해상도로 설정
         const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 360;
+        canvas.width = video.videoWidth || 1280;
+        canvas.height = video.videoHeight || 720;
         const ctx = canvas.getContext("2d");
 
         for (let i = 0; i < numFrames; i++) {
@@ -392,8 +410,8 @@ function captureFrame(video, time, ctx, canvas) {
             try {
                 // 캔버스에 현재 프레임 그리기
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                // 데이터 URL로 변환
-                const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+                // 데이터 URL로 변환 - 품질 향상
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
                 return resolve(dataUrl);
             } catch (e) {
                 console.error("drawImage 오류:", e);
@@ -423,8 +441,8 @@ function captureFrame(video, time, ctx, canvas) {
                 // 캔버스에 현재 프레임 그리기
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-                // 데이터 URL로 변환
-                const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+                // 데이터 URL로 변환 - 품질 향상
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
 
                 // 이벤트 리스너 제거
                 video.removeEventListener("seeked", seekedHandler);
@@ -466,20 +484,20 @@ function captureFrame(video, time, ctx, canvas) {
         // 첫 번째 시간 이동 시도
         attemptSeek();
 
-        // 8초 타임아웃
+        // 10초 타임아웃
         setTimeout(() => {
             video.removeEventListener("seeked", seekedHandler);
             video.removeEventListener("error", errorHandler);
             reject(new Error("프레임 캡처 타임아웃"));
-        }, 8000);
+        }, 10000);
     });
 }
 
 // 빈 이미지 생성 (프레임 캡처 실패 시 사용)
 function createEmptyImage(width, height) {
     const canvas = document.createElement("canvas");
-    canvas.width = width || 640;
-    canvas.height = height || 360;
+    canvas.width = width || 1280;
+    canvas.height = height || 720;
     const ctx = canvas.getContext("2d");
 
     // 회색 배경
